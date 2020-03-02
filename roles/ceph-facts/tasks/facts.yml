@@ -271,10 +271,20 @@
   import_tasks: set_radosgw_address.yml
   when: inventory_hostname in groups.get(rgw_group_name, [])
 
-- name: set_fact rgw_instances
+- name: set_fact rgw_instances when rgw multisite is configured
   set_fact:
     rgw_instances: "{{ rgw_instances|default([]) | union([{ 'instance_name': inventory_hostname, 'radosgw_address': _radosgw_address, 'radosgw_frontend_port': radosgw_frontend_port, 'rgw_realm': rgw_realm, 'rgw_zonegroup': rgw_zonegroup, 'rgw_zone': rgw_zone }]) }}"
-  when: inventory_hostname in groups.get(rgw_group_name, [])
+  when: 
+    - inventory_hostname in groups.get(rgw_group_name, [])
+    - rgw_multisite | bool
+
+- name: set_fact rgw_instances when rgw multisite is not configured
+  set_fact:
+    rgw_instances: "{{ rgw_instances|default([]) | union([{'instance_name': 'rgw' + item|string, 'radosgw_address': _radosgw_address, 'radosgw_frontend_port': radosgw_frontend_port|int + item|int}]) }}"
+  with_sequence: start=0 end={{ radosgw_num_instances|int - 1 }}
+  when: 
+    - inventory_hostname in groups.get(rgw_group_name, [])
+    - not rgw_multisite | bool
 
 - name: set grafana_server_addr fact - ipv4
   set_fact:
